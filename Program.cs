@@ -2,6 +2,8 @@
 using System.Text.RegularExpressions;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
+
 internal class Program
 {
     private static void Main(string[] args)
@@ -30,52 +32,51 @@ internal class Program
     }
     private static Collection<Collection<string>> FindBinAndObj(string root)
     {
-        var AllDirectories = Directory.GetDirectories(root, "*", SearchOption.AllDirectories);
 
-        #region bin_dirs
         Collection<string> BinDirsCollection = new();
-        string[] node = new string[] {"node_modules"};
-        foreach (var dir in AllDirectories.Where(d => !node.Any(s => d.Contains(s))))
-        {
-            foreach (var binDir in Directory.GetDirectories(dir, @"bin"))
-            {
+        Collection<string> NodeDirsCollection = new();
+        Collection<string> ObjDirsCollection = new();
+
+        string node = "node_modules";
+        string bin = "bin";
+        string obj = "obj";
+
+        // if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) -- should do this at the end (exclude Library)
+
+        var AllDirectories = Directory.GetDirectories(root, "*", SearchOption.AllDirectories);
+        var ObjBinDirs = AllDirectories.Where(d => !node.Any(s => d.Contains(s)));
+        var NodeDirs = AllDirectories.Where(d => node.Any(s => d.Contains(s)));
+
+        foreach (var dir in ObjBinDirs)
+        { // This is O(n)
+
+            foreach (var binDir in Directory.GetDirectories(dir, bin))
+            { // This is O(n)
                 if (Directory.GetDirectories(binDir).Count()>0)
-                {
+                { // This is O(1)
                     BinDirsCollection.Add(binDir);
                 }
             }
-        }
-        #endregion
 
-        #region node_modules
-        Collection<string> NodeDirsCollection = new();
-        Regex test = new Regex("node_modules.");
-        foreach (var dir in AllDirectories)
-        {
-            var containsNode = Directory.GetDirectories(dir, "node_modules");
-            foreach (var item in containsNode)
-            {
-                if(!Regex.IsMatch(item, "node_modules."))
-                {
-                    NodeDirsCollection.Add(item);
-                }
-            }
-        }
-        #endregion
-
-        #region obj_dirs
-        Collection<string> ObjDirsCollection = new();
-        foreach (var dir in AllDirectories)
-        {
-            foreach (var objDir in Directory.GetDirectories(dir, @"obj"))
-            {
-                if (Directory.GetDirectories(objDir).Count()>0)
-                {
+            foreach (var objDir in Directory.GetDirectories(dir, obj))
+            { // This is O(n)
+                if (Directory.GetDirectories(objDir).Count() > 0)
+                { // This is O(1)
                     ObjDirsCollection.Add(objDir);
                 }
             }
         }
-        #endregion
+
+        foreach (var dir in NodeDirs)
+        {
+            foreach (var nodeDir in Directory.GetDirectories(dir, node))
+            { // This is O(n)
+                if (!Regex.IsMatch(nodeDir, "node_modules."))
+                { // This is O(1)
+                    NodeDirsCollection.Add(nodeDir);
+                }
+            }
+        }
 
         #region return
         Collection<Collection<string>> AllDirsCollection = new()
@@ -89,7 +90,7 @@ internal class Program
     {
         Collection<string> dirTypes = new() {"bin", "node", "obj"};
         for (int i = 1; i <= 3; i++)
-        {
+        { // This is O(3)
             foreach (var collection in dirCollection[i-1])
             {
                 foreach (var delete in Directory.GetFiles(collection, "*", SearchOption.AllDirectories))
